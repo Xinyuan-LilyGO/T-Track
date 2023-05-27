@@ -38,7 +38,7 @@
 #define SPI_FREQUENCY 80000000
 #define TFT_SPI_MODE  SPI_MODE0
 
-void gc9107_init(void);
+void JD9613_Init(void);
 void LCD_Address_Set(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
 void lcd_setRotation(uint8_t r);
 void lcd_DrawPoint(uint16_t x, uint16_t y, uint16_t color);

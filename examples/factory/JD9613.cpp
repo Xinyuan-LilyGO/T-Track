@@ -1,4 +1,4 @@
-#include "gc9107.h"
+#include "JD9613.h"
 #include "SPI.h"
 #include "Arduino.h"
 
@@ -147,7 +147,7 @@ static void WriteData16(uint16_t data)
     TFT_CS_H;
 }
 
-void gc9107_init(void)
+void JD9613_Init(void)
 {
     tft_gpio_init();
 

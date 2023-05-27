@@ -1,21 +1,44 @@
 #include <Arduino.h>
-#include "gc9107.h"
-#include "lvgl.h"
-#include "gui.h"
-#include "SPI.h"
-
-#include "pin_config.h"
-
-#include "WiFi.h"
-#include "OneButton.h"
-#include "logo_img.h"
-
-#include "sntp.h"
-#include "time.h"
-
-#include "zones.h"
+#include <SPI.h>
+#include <WiFi.h>
+#include <lvgl.h>
+#include <OneButton.h>
+#include <time.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+
+#include "JD9613.h"
+#include "gui.h"
+#include "logo_img.h"
+#include "sntp.h"
+#include "zones.h"
+
+#define WIFI_SSID             "xinyuandianzi"
+#define WIFI_PASSWORD         "AA15994823428"
+
+#define POWER_ON_PIN          4
+#define PIN_BOOT_BTN          0
+#define PIN_GS1               1
+#define PIN_GS2               2
+#define PIN_GS3               3
+#define PIN_GS4               10
+
+#define EXAMPLE_LCD_H_RES     294
+#define EXAMPLE_LCD_V_RES     126
+#define LVGL_LCD_BUF_SIZE     (EXAMPLE_LCD_H_RES * EXAMPLE_LCD_V_RES)
+
+
+#define WIFI_CONNECT_WAIT_MAX (30 * 1000)
+
+#define NTP_SERVER1           "pool.ntp.org"
+#define NTP_SERVER2           "time.nist.gov"
+#define GMT_OFFSET_SEC        0
+#define DAY_LIGHT_OFFSET_SEC  0
+// if CUSTOM_TIMEZONE is not defined then TIMEZONE API used based on IP, check zones.h
+// #define CUSTOM_TIMEZONE             "Europe/London"
+
+/* Automatically update local time */
+#define GET_TIMEZONE_API      "https://ipapi.co/timezone/"
 
 OneButton button1(PIN_BOOT_BTN, true);
 const uint8_t dir_pins[4] = {PIN_GS1, PIN_GS2, PIN_GS3, PIN_GS4};
@@ -28,7 +51,6 @@ uint16_t indev_x, indev_y;
 void wifi_test(void);
 void timeavailable(struct timeval *t);
 void printLocalTime();
-void SmartConfig();
 void setTimezone();
 
 void lv_disp_flush(lv_disp_drv_t *disp,
@@ -37,7 +59,6 @@ void lv_disp_flush(lv_disp_drv_t *disp,
 {
     uint32_t w = (area->x2 - area->x1 + 1);
     uint32_t h = (area->y2 - area->y1 + 1);
-    // lcd_PushColors(area->x1, area->y1, w, h, (uint16_t *)&color_p->full); //Vertical display
     lcd_PushColors_SoftRotation(area->x1,
                                 area->y1,
                                 w,
@@ -49,15 +70,12 @@ void lv_disp_flush(lv_disp_drv_t *disp,
 
 static void lv_indev_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data)
 {
-    if (change_point != 0)
-    {
+    if (change_point != 0) {
         change_point = 0;
         data->point.x = indev_x;
         data->point.y = indev_y;
         data->state = LV_INDEV_STATE_PR;
-    }
-    else
-    {
+    } else {
         data->state = LV_INDEV_STATE_REL;
     }
 }
@@ -83,7 +101,7 @@ void setup()
                   ESP.getPsramSize() / 1024 / 1024,
                   ESP.getFlashChipSize() / 1024 / 1024);
 
-    gc9107_init();
+    JD9613_Init();
     lcd_PushColors_SoftRotation(0, 0, 294, 126, (uint16_t *)gImage_logo_img, 2);
     delay(2000);
 
@@ -120,21 +138,14 @@ void setup()
     lv_obj_set_style_radius(obj_point, 90, 0);
 
     button1.attachClick(
-        [](void *param)
-        {
-            // lv_obj_t *obj = (lv_obj_t *)param;
-            // lv_obj_set_style_bg_color(
-            //     obj,
-            //     lv_color_make(random(0xff), random(0xff), random(0xff)),
-            //     0);
-            // change_point = true;
-            lcd_sleep();
-            digitalWrite(4, 0);
-            uint64_t mask = 1 << PIN_BOOT_BTN;
-            esp_sleep_enable_ext1_wakeup(mask, ESP_EXT1_WAKEUP_ALL_LOW);
-            esp_deep_sleep_start();
-        },
-        obj_point);
+    [](void *param) {
+        lcd_sleep();
+        digitalWrite(4, 0);
+        uint64_t mask = 1 << PIN_BOOT_BTN;
+        esp_sleep_enable_ext1_wakeup(mask, ESP_EXT1_WAKEUP_ALL_LOW);
+        esp_deep_sleep_start();
+    },
+    obj_point);
 }
 
 void loop()
@@ -145,15 +156,12 @@ void loop()
     delay(1);
 
     static bool last_dir[4];
-    for (int i = 0; i < 4; i++)
-    {
+    for (int i = 0; i < 4; i++) {
         bool dir = digitalRead(dir_pins[i]);
-        if (dir != last_dir[i])
-        {
+        if (dir != last_dir[i]) {
             last_dir[i] = dir;
 
-            switch (i)
-            {
+            switch (i) {
             case 0:
                 if (indev_x < EXAMPLE_LCD_H_RES)
                     indev_x += 3;
@@ -195,16 +203,12 @@ void wifi_test(void)
     delay(100);
     int n = WiFi.scanNetworks();
     Serial.println("scan done");
-    if (n == 0)
-    {
+    if (n == 0) {
         text = "no networks found";
-    }
-    else
-    {
+    } else {
         text = n;
         text += " networks found\n";
-        for (int i = 0; i < n; ++i)
-        {
+        for (int i = 0; i < n; ++i) {
             text += (i + 1);
             text += ": ";
             text += WiFi.SSID(i);
@@ -228,14 +232,13 @@ void wifi_test(void)
     uint32_t i = 0;
     bool is_smartconfig_connect = false;
     lv_label_set_long_mode(log_label, LV_LABEL_LONG_WRAP);
-    while (WiFi.status() != WL_CONNECTED)
-    {
+    while (WiFi.status() != WL_CONNECTED) {
         Serial.print(".");
         text += ".";
         lv_label_set_text(log_label, text.c_str());
         LV_DELAY(100);
-        if (millis() - last_tick > WIFI_CONNECT_WAIT_MAX)
-        { /* Automatically start smartconfig when connection times out */
+        if (millis() - last_tick > WIFI_CONNECT_WAIT_MAX) {
+            /* Automatically start smartconfig when connection times out */
             text += "\nConnection timed out, start smartconfig";
             lv_label_set_text(log_label, text.c_str());
             LV_DELAY(100);
@@ -247,11 +250,9 @@ void wifi_test(void)
                     "distribution network";
             lv_label_set_text(log_label, text.c_str());
             WiFi.beginSmartConfig();
-            while (1)
-            {
+            while (1) {
                 LV_DELAY(100);
-                if (WiFi.smartConfigDone())
-                {
+                if (WiFi.smartConfigDone()) {
                     Serial.println("\r\nSmartConfig Success\r\n");
                     Serial.printf("SSID:%s\r\n", WiFi.SSID().c_str());
                     Serial.printf("PSW:%s\r\n", WiFi.psk().c_str());
@@ -268,8 +269,7 @@ void wifi_test(void)
             }
         }
     }
-    if (!is_smartconfig_connect)
-    {
+    if (!is_smartconfig_connect) {
         text += "\nCONNECTED \nTakes ";
         Serial.print("\n CONNECTED \nTakes ");
         text += millis() - last_tick;
@@ -285,8 +285,7 @@ void wifi_test(void)
 void printLocalTime()
 {
     struct tm timeinfo;
-    if (!getLocalTime(&timeinfo))
-    {
+    if (!getLocalTime(&timeinfo)) {
         Serial.println("No time available (yet)");
         return;
     }
@@ -333,29 +332,23 @@ void setTimezone()
 
     WiFiClientSecure *client = new WiFiClientSecure;
     String timezone;
-    if (client)
-    {
+    if (client) {
         client->setCACert(rootCACertificate);
         HTTPClient https;
-        if (https.begin(*client, GET_TIMEZONE_API))
-        {
+        if (https.begin(*client, GET_TIMEZONE_API)) {
             int httpCode = https.GET();
-            if (httpCode > 0)
-            {
+            if (httpCode > 0) {
                 // HTTP header has been send and Server response header has been handled
                 Serial.printf("[HTTPS] GET... code: %d\n", httpCode);
 
                 // file found at server
                 if (httpCode == HTTP_CODE_OK ||
-                    httpCode == HTTP_CODE_MOVED_PERMANENTLY)
-                {
+                        httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
                     String payload = https.getString();
                     Serial.println(payload);
                     timezone = payload;
                 }
-            }
-            else
-            {
+            } else {
                 Serial.printf("[HTTPS] GET... failed, error: %s\n",
                               https.errorToString(httpCode).c_str());
             }
@@ -364,15 +357,12 @@ void setTimezone()
         delete client;
     }
 #endif
-    for (uint32_t i = 0; i < sizeof(zones); i++)
-    {
-        if (timezone == "none")
-        {
+    for (uint32_t i = 0; i < sizeof(zones); i++) {
+        if (timezone == "none") {
             timezone = "CST-8";
             break;
         }
-        if (timezone == zones[i].name)
-        {
+        if (timezone == zones[i].name) {
             timezone = zones[i].zones;
             break;
         }
