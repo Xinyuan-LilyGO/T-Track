@@ -13,6 +13,10 @@
 #include "sntp.h"
 #include "zones.h"
 
+#ifndef BOARD_HAS_PSRAM
+#error "Detected that PSRAM is not turned on. Please set PSRAM to OPI PSRAM in ArduinoIDE"
+#endif //BOARD_HAS_PSRAM
+
 #define WIFI_SSID             "xinyuandianzi"
 #define WIFI_PASSWORD         "AA15994823428"
 
@@ -106,7 +110,11 @@ void setup()
     delay(2000);
 
     lv_init();
-    buf = (lv_color_t *)heap_caps_malloc(sizeof(lv_color_t) * LVGL_LCD_BUF_SIZE, MALLOC_CAP_INTERNAL);
+
+    size_t lv_size = sizeof(lv_color_t) * TRACK_DISP_WIDTH * TRACK_DISP_HEIGHT;
+    buf = (lv_color_t *)ps_malloc(lv_size);
+    assert(buf);
+
     lv_disp_draw_buf_init(&draw_buf, buf, NULL, LVGL_LCD_BUF_SIZE);
 
     /*Initialize the display*/
