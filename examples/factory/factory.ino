@@ -17,8 +17,8 @@
 #error "Detected that PSRAM is not turned on. Please set PSRAM to OPI PSRAM in ArduinoIDE"
 #endif //BOARD_HAS_PSRAM
 
-#define WIFI_SSID             "xinyuandianzi"
-#define WIFI_PASSWORD         "AA15994823428"
+#define WIFI_SSID             "Your wifi ssid"
+#define WIFI_PASSWORD         "Your wifi password"
 
 #define POWER_ON_PIN          4
 #define PIN_BOOT_BTN          0
@@ -39,7 +39,7 @@
 #define GMT_OFFSET_SEC        0
 #define DAY_LIGHT_OFFSET_SEC  0
 // if CUSTOM_TIMEZONE is not defined then TIMEZONE API used based on IP, check zones.h
-// #define CUSTOM_TIMEZONE             "Europe/London"
+#define CUSTOM_TIMEZONE       "Europe/London"
 
 /* Automatically update local time */
 #define GET_TIMEZONE_API      "https://ipapi.co/timezone/"
@@ -307,6 +307,7 @@ void timeavailable(struct timeval *t)
     WiFi.disconnect();
 }
 
+// Please confirm the certificate's validity period.
 const char *rootCACertificate =
     "-----BEGIN CERTIFICATE-----\n"
     "MIIDzTCCArWgAwIBAgIQCjeHZF5ftIwiTv0b7RQMPDANBgkqhkiG9w0BAQsFADBa\n"
