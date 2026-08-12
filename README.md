@@ -46,11 +46,44 @@ Please enter the upload mode manually.
 1. PlatformIO plug-in installation: click on the extension on the left column → search platformIO → install the first plug-in
 2. Click Platforms → Embedded → search Espressif 32 in the input box → select the corresponding firmware installation
 
+### Pins Map
+
+| Name           | GPIO NUM |
+| -------------- | -------- |
+| G1             | 1        |
+| G2             | 2        |
+| G3             | 3        |
+| G4             | 10       |
+| AMOLED SCK     | 36       |
+| AMOLED MISO    | 34       |
+| AMOLED MOSI    | 35       |
+| AMOLED RST     | 38       |
+| AMOLED DC      | 46       |
+| AMOLED CS      | 37       |
+| Button1 (BOOT) | 0        |
+| On Board LED   | 21       |
+| Power Enable   | 4        |
+| Battery ADC    | NC       |
+
+- Power Enable: Control trackball and AMOLED power
+- Battery ADC: No onboard battery ADC voltage divider resistor
+
+## LED Description
+
+| Function   | Color |
+| ---------- | ----- |
+| Charge LED | Red   |
+| User LED   | Green |
+
+### Charging Indicator LED Status
+
+1. Flashes or dimly lights when no battery is connected.
+2. Remains on while charging.
+3. Turns off when fully charged.
+
 ## Tips
 
 1. When the USB is repeatedly disconnected, it means that the program is abnormal. At this time, you need to follow the steps below
    - Press and hold the **BOOT(In the middle of the trackball, press down)** button (without releasing it), then press the **RST** button, then release the **RST** button, and finally release the **BOOT(In the middle of the trackball, press down)** button
    - Click the upload button in the IDE and wait for the upload to complete
    - Press the **RST** button to exit the download mode
-
-
